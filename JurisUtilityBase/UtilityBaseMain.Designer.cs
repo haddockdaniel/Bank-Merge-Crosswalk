@@ -183,6 +183,7 @@
             this.cbBank.Name = "cbBank";
             this.cbBank.Size = new System.Drawing.Size(312, 21);
             this.cbBank.TabIndex = 17;
+            this.cbBank.SelectedIndexChanged += new System.EventHandler(this.cbBank_SelectedIndexChanged);
             // 
             // label1
             // 

@@ -33,6 +33,8 @@ namespace JurisUtilityBase
 
         private string error = "";
 
+        private string bCodesForTest = "";
+
         #endregion
 
         #region Constructor
@@ -152,59 +154,65 @@ namespace JurisUtilityBase
             string NBank = cbNew.SelectedItem.ToString();
             string NewBank = NBank.Substring(0, 4);
             NewBank = NewBank.TrimEnd(' ');
-            
-            
-            if (NewBank.ToString() == "****")
-            { NewBank = txtBnkCode.Text.ToString();
-                NewBank = NewBank.TrimEnd(' ');
-                string NewDesc = txtBankDesc.Text.ToString();
 
-                string Sql = "select bnkcode from bankaccount where bnkcode='" + NewBank.ToString() + "'";
 
-                DataSet sn = _jurisUtility.RecordsetFromSQL(Sql);
-
-                if (sn.Tables[0].Rows.Count == 0)
+                if (NewBank.ToString() == "****")
                 {
-                    DialogResult rs = MessageBox.Show("Bank account " + OldBank.ToString() + " will be moved to " + NewBank.ToString() + " - " + NewDesc.ToString() + ".  Do you wish to continue?", "Warning",
-                  MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
-                    if (rs == DialogResult.Yes)
-                    { RenameBank(NewBank, OldBank, NewDesc); }
+                    NewBank = txtBnkCode.Text.ToString();
+                    NewBank = NewBank.TrimEnd(' ');
+                    string NewDesc = txtBankDesc.Text.ToString();
+
+                    string Sql = "select bnkcode from bankaccount where bnkcode='" + NewBank.ToString() + "'";
+
+                    DataSet sn = _jurisUtility.RecordsetFromSQL(Sql);
+
+                    if (sn.Tables[0].Rows.Count == 0)
+                    {
+                        DialogResult rs = MessageBox.Show("Bank account " + OldBank.ToString() + " will be moved to " + NewBank.ToString() + " - " + NewDesc.ToString() + ".  Do you wish to continue?", "Warning",
+                      MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                        if (rs == DialogResult.Yes)
+                        { RenameBank(NewBank, OldBank, NewDesc); }
+                        else
+                        {
+                            labelCurrentStatus.Text = "Operation Cancelled";
+                            toolStripStatusLabel.Text = "Operation Cancelled";
+                        }
+                    }
                     else
                     {
-                        labelCurrentStatus.Text = "Operation Cancelled";
-                        toolStripStatusLabel.Text = "Operation Cancelled";
+                        DialogResult rs2 = MessageBox.Show("Bank account " + NewBank.ToString() + " exists within the current database. Please enter a new bank code.", "Alert",
+                      MessageBoxButtons.OKCancel, MessageBoxIcon.Exclamation);
                     }
+
                 }
+
                 else
                 {
-                    DialogResult rs2 = MessageBox.Show("Bank account " + NewBank.ToString() +  " exists within the current database. Please enter a new bank code.", "Alert",
-                  MessageBoxButtons.OKCancel, MessageBoxIcon.Exclamation);
-                }
-
+                                string sqlquery = "select BnkAcctType from BankAccount where bnkcode = '" + NewBank + "' or bnkcode = '" + OldBank + "'";
+                        DataSet ds4 = _jurisUtility.RecordsetFromSQL(sqlquery);
+                        if (ds4.Tables[0].Rows[0][0].ToString().Equals(ds4.Tables[0].Rows[1][0].ToString()))
+                        {
+                    DialogResult rs = MessageBox.Show("Bank account " + OldBank.ToString() + " will be merged with existing bank " + NewBank.ToString() + " and " + OldBank.ToString() + " will be removed from the database.  Do you wish to continue?", "Warning",
+                      MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                    if (rs == DialogResult.Yes)
+                    {
+                        MergeBank(NewBank, OldBank);
+                    }
+                    else if (rs == DialogResult.No)
+                    {
+                        //code for No
+                    }
+                    else if (rs == DialogResult.Cancel)
+                    {
+                        //code for Cancel
+                    }
             }
-
             else
+                MessageBox.Show("You can only select the same type of bank accounts." + "\r\n" + "For example, you cannot replace a General Bank with a Trust Bank", "Selection Issue", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
-            {
-                
-                DialogResult rs = MessageBox.Show("Bank account " + OldBank.ToString() + " will be merged with existing bank " + NewBank.ToString() +  " and " + OldBank.ToString() + " will be removed from the database.  Do you wish to continue?", "Warning",
-                  MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
-                if (rs == DialogResult.Yes)
-                {
-                    MergeBank(NewBank, OldBank);
-                }
-                else if (rs == DialogResult.No)
-                {
-                    //code for No
-                }
-                else if (rs == DialogResult.Cancel)
-                {
-                    //code for Cancel
                 }
 
-            }
 
-         
         }
 
   
@@ -306,9 +314,33 @@ namespace JurisUtilityBase
                 sql = "delete from bkacctglacct where bgabkacct= '" + ob + "'";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
                 UpdateStatus("Removing Old Bank...", 2, 3);
-                sql = "delete from bankreconhistory where brhbank= '" + ob + "'";
+
+                sql = "select '" + nb + "' as brhbank, brhstmtdate, sum(brhstmtopenbal) as OpenBal, sum(brhstmtdepositcount) as DepositCount, sum(brhstmtdepositamount) as DepAmt, "
+                    + " sum(brhstmtcheckcount) as CheckCount, sum(brhstmtcheckamount) as CheckAmt, sum(brhstmtendbal) as EndBal,"
+                    + " max( brhbooklaststmtdate) as LastStmtDate, "
+                    + " sum(brhbooklaststmtbal) as LastBal, sum(brhbookdepositcount) as BookDepCount, sum(brhbookdepositamount) as BookDepAmount,"
+                    + " sum(brhbookcheckcount) as BookCheckCount, sum(brhbookcheckamount) as BookCheckAmt, sum(brhbookclearedbal) as BookCleared, brhrecorded as Recorded, max(brhrecordeddate) as RecordedDate,"
+                    + " max(brhlastckregbatchje) as LastBatchJE"
+                    + " into #BRH"
+                    + " from bankreconhistory where  brhbank='" + nb + "' or brhbank='" + ob + "'"
+                    + " group by  brhstmtdate, brhrecorded";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
+
+                sql = "delete from bankreconhistory where  brhbank='" + nb + "' or brhbank='" + ob + "'";
+                _jurisUtility.ExecuteNonQueryCommand(0, sql);
+
+                sql = "Insert into bankreconhistory(brhbank, brhstmtdate, brhstmtopenbal,brhstmtdepositcount,brhstmtdepositamount,brhstmtcheckcount,brhstmtcheckamount,brhstmtendbal,"
+                    + " brhbooklaststmtdate,brhbooklaststmtbal,brhbookdepositcount,brhbookdepositamount,brhbookcheckcount,brhbookcheckamount,brhbookclearedbal,brhrecorded,brhrecordeddate,"
+                    + " brhlastckregbatchje)"
+                    + " select * From #BRH";
+                _jurisUtility.ExecuteNonQueryCommand(0, sql);
+
+                sql = "drop table #BRH";
+                _jurisUtility.ExecuteNonQueryCommand(0, sql);
+
                 UpdateStatus("Removing Old Bank...", 3, 3);
+
+
                 sql = "delete from bankaccount where bnkcode= '" + ob + "'";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
                 sql = "delete from documenttree where DTKeyT= '" + ob + "' and DTDocClass = 6400 and DTDocType = 'R' and DTParentID = 10";
@@ -751,6 +783,11 @@ namespace JurisUtilityBase
                 txtBnkCode.Visible = false;
                 txtBankDesc.Visible = false;
             }
+
+        }
+
+        private void cbBank_SelectedIndexChanged(object sender, EventArgs e)
+        {
 
         }
     }
