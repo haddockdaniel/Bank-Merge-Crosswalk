@@ -319,11 +319,11 @@ namespace JurisUtilityBase
                     + " sum(brhstmtcheckcount) as CheckCount, sum(brhstmtcheckamount) as CheckAmt, sum(brhstmtendbal) as EndBal,"
                     + " max( brhbooklaststmtdate) as LastStmtDate, "
                     + " sum(brhbooklaststmtbal) as LastBal, sum(brhbookdepositcount) as BookDepCount, sum(brhbookdepositamount) as BookDepAmount,"
-                    + " sum(brhbookcheckcount) as BookCheckCount, sum(brhbookcheckamount) as BookCheckAmt, sum(brhbookclearedbal) as BookCleared, brhrecorded as Recorded, max(brhrecordeddate) as RecordedDate,"
-                    + " max(brhlastckregbatchje) as LastBatchJE"
+                    + " sum(brhbookcheckcount) as BookCheckCount, sum(brhbookcheckamount) as BookCheckAmt, sum(brhbookclearedbal) as BookCleared, max(brhrecorded) as Recorded, max(brhrecordeddate) as RecordedDate,"
+                    + " max(brhlastckregbatchje) as LastBatchJE, row_number() over (order by brhstmtdate) as RowID"
                     + " into #BRH"
-                    + " from bankreconhistory where  brhbank='" + nb + "' or brhbank='" + ob + "'"
-                    + " group by  brhstmtdate, brhrecorded";
+                    + " from bankreconhistory where brhrecorded='Y' and   (brhbank='" + nb + "' or brhbank='" + ob + "')"
+                    + " group by  brhstmtdate order by brhstmtdate asc";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
 
                 sql = "delete from bankreconhistory where  brhbank='" + nb + "' or brhbank='" + ob + "'";
@@ -332,7 +332,12 @@ namespace JurisUtilityBase
                 sql = "Insert into bankreconhistory(brhbank, brhstmtdate, brhstmtopenbal,brhstmtdepositcount,brhstmtdepositamount,brhstmtcheckcount,brhstmtcheckamount,brhstmtendbal,"
                     + " brhbooklaststmtdate,brhbooklaststmtbal,brhbookdepositcount,brhbookdepositamount,brhbookcheckcount,brhbookcheckamount,brhbookclearedbal,brhrecorded,brhrecordeddate,"
                     + " brhlastckregbatchje)"
-                    + " select * From #BRH";
+                    + " select brhbank, brhstmtdate,  OpenBal,  DepositCount,  DepAmt, "
+                    + "  CheckCount,  CheckAmt,  EndBal,"
+                    + "  LastStmtDate, "
+                    + "  LastBal,  BookDepCount,  BookDepAmount,"
+                    + " BookCheckCount, BookCheckAmt, BookCleared,  Recorded, RecordedDate,"
+                    + "  LastBatchJE From #BRH order by rowid asc";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
 
                 sql = "drop table #BRH";
