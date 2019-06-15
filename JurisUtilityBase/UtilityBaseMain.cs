@@ -235,9 +235,9 @@ namespace JurisUtilityBase
                 sql = "update CBCheck set CBCBank='" + nb + "' where CBCBank='" + ob + "'";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
                 UpdateStatus("Merging Banks...", 3, 20);
-                sql = "update CheckRegister set CkRegBank='" + nb + "' where CkRegBank='" + ob + "'";
+                sql = "update CheckRegister set ckregcleared='Y’, CkRegBank='" + nb + "' where CkRegBank='" + ob + "'";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
-                UpdateStatus("Merging Banks...", 4, 20);
+                UpdateStatus("Renaming Bank...", 4, 20);
                 sql = "update CheckRegister_Log set CkRegBank='" + nb + "' where CkRegBank='" + ob + "'";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
                 UpdateStatus("Merging Banks...", 5, 20);
@@ -321,27 +321,34 @@ namespace JurisUtilityBase
                     + " sum(brhbooklaststmtbal) as LastBal, sum(brhbookdepositcount) as BookDepCount, sum(brhbookdepositamount) as BookDepAmount,"
                     + " sum(brhbookcheckcount) as BookCheckCount, sum(brhbookcheckamount) as BookCheckAmt, sum(brhbookclearedbal) as BookCleared, max(brhrecorded) as Recorded, max(brhrecordeddate) as RecordedDate,"
                     + " max(brhlastckregbatchje) as LastBatchJE, row_number() over (order by brhstmtdate) as RowID"
-                    + " into #BRH"
+                  //  + " into #BRH"
                     + " from bankreconhistory where brhrecorded='Y' and   (brhbank='" + nb + "' or brhbank='" + ob + "')"
                     + " group by  brhstmtdate order by brhstmtdate asc";
-                _jurisUtility.ExecuteNonQueryCommand(0, sql);
+                DataSet ds22 = _jurisUtility.RecordsetFromSQL(sql);
+
+                ds22.Tables[0].DefaultView.Sort = "RowID asc";
+                DataTable dt = ds22.Tables[0].DefaultView.ToTable();
 
                 sql = "delete from bankreconhistory where  brhbank='" + nb + "' or brhbank='" + ob + "'";
                 _jurisUtility.ExecuteNonQueryCommand(0, sql);
 
-                sql = "Insert into bankreconhistory(brhbank, brhstmtdate, brhstmtopenbal,brhstmtdepositcount,brhstmtdepositamount,brhstmtcheckcount,brhstmtcheckamount,brhstmtendbal,"
-                    + " brhbooklaststmtdate,brhbooklaststmtbal,brhbookdepositcount,brhbookdepositamount,brhbookcheckcount,brhbookcheckamount,brhbookclearedbal,brhrecorded,brhrecordeddate,"
-                    + " brhlastckregbatchje)"
-                    + " select brhbank, brhstmtdate,  OpenBal,  DepositCount,  DepAmt, "
-                    + "  CheckCount,  CheckAmt,  EndBal,"
-                    + "  LastStmtDate, "
-                    + "  LastBal,  BookDepCount,  BookDepAmount,"
-                    + " BookCheckCount, BookCheckAmt, BookCleared,  Recorded, RecordedDate,"
-                    + "  LastBatchJE From #BRH order by rowid asc";
-                _jurisUtility.ExecuteNonQueryCommand(0, sql);
+                foreach (DataRow row in dt.Rows)
+                {
 
-                sql = "drop table #BRH";
-                _jurisUtility.ExecuteNonQueryCommand(0, sql);
+                    sql = "Insert into bankreconhistory(brhbank, brhstmtdate, brhstmtopenbal,brhstmtdepositcount,brhstmtdepositamount,brhstmtcheckcount,brhstmtcheckamount,brhstmtendbal,"
+                               + " brhbooklaststmtdate,brhbooklaststmtbal,brhbookdepositcount,brhbookdepositamount,brhbookcheckcount,brhbookcheckamount,brhbookclearedbal,brhrecorded,brhrecordeddate,"
+                               + " brhlastckregbatchje) values ('"
+                               + row["brhbank"].ToString().Trim() + "', '" + Convert.ToDateTime(row["brhstmtdate"].ToString()).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture) + "' , " + row["OpenBal"].ToString().Trim() +
+                               ", " + row["DepositCount"].ToString().Trim() + ", " + row["DepAmt"].ToString().Trim() + " , " +
+                               row["CheckCount"].ToString().Trim() + " , " + row["CheckAmt"].ToString().Trim() + " , " + row["EndBal"].ToString().Trim() + " , '" + Convert.ToDateTime(row["LastStmtDate"].ToString().Trim()).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture) +
+                               "' , " + row["LastBal"].ToString().Trim() + " , " + row["BookDepCount"].ToString().Trim() + " , " + row["BookDepAmount"].ToString().Trim() +
+                               " , " + row["BookCheckCount"].ToString().Trim() + " , " + row["BookCheckAmt"].ToString().Trim() + " , " + row["BookCleared"].ToString().Trim() +
+                               " , '" + row["Recorded"].ToString().Trim() + "' , '" + Convert.ToDateTime(row["RecordedDate"].ToString().Trim()).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture) + "' , " + row["LastBatchJE"].ToString().Trim() + " )"; 
+                    _jurisUtility.ExecuteNonQueryCommand(0, sql);
+                }
+
+                //sql = "drop table #BRH";
+               // _jurisUtility.ExecuteNonQueryCommand(0, sql);
 
                 UpdateStatus("Removing Old Bank...", 3, 3);
 
